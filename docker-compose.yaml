@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  db:
+    image: mongo:latest
+    container_name: auth-mongo
+    restart: always
+    ports:
+      - "27019:27017"
+    volumes:
+      - ./mongo_data:/data/db
+    environment:
+      MONGODB_DATABASE: oauth
+
+  auth-service:
+    build: .
+    container_name: auth-service
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGODBURI=mongodb://auth-mongo:27017/oauth
+      - JWTSECRET=pruebaTecnicaJWT
+      - SECRETKEY=pruebaTecnica
+
+volumes:
+  mongo_data:
+
