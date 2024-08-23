@@ -34,9 +34,6 @@ export class UserRepository implements UserRepositoryInterface {
 
   async findBy(query: Partial<User>): Promise<User | null> {
     if (query.customerKey) {
-      // Crear instancia del servicio de encriptación
-      const encryptionService = new EncryptionService();
-
       // Obtener todos los usuarios que tienen un customerKey
       const users = await this.userModel
         .find({ customerKey: { $exists: true } })
@@ -44,7 +41,7 @@ export class UserRepository implements UserRepositoryInterface {
 
       // Iterar sobre los usuarios y desencriptar cada customerKey para comparar
       for (const user of users) {
-        const decryptedCustomerKey = encryptionService.decrypt(
+        const decryptedCustomerKey = await this.encryptionService.decrypt(
           user.customerKey,
         );
 
@@ -97,8 +94,6 @@ export class UserRepository implements UserRepositoryInterface {
     customerKey: string,
     updateData: Partial<User>,
   ): Promise<User | null> {
-    const encryptionService = new EncryptionService();
-
     // Obtener todos los usuarios que tienen un customerKey
     const users = await this.userModel
       .find({ customerKey: { $exists: true } })
@@ -106,7 +101,9 @@ export class UserRepository implements UserRepositoryInterface {
 
     // Iterar sobre los usuarios y desencriptar cada customerKey para comparar
     for (const user of users) {
-      const decryptedCustomerKey = encryptionService.decrypt(user.customerKey);
+      const decryptedCustomerKey = await this.encryptionService.decrypt(
+        user.customerKey,
+      );
 
       if (decryptedCustomerKey === customerKey) {
         const updatedUser = await this.userModel
@@ -131,8 +128,6 @@ export class UserRepository implements UserRepositoryInterface {
   }
 
   async delete(customerKey: string): Promise<boolean> {
-    const encryptionService = new EncryptionService();
-
     // Obtener todos los usuarios que tienen un customerKey
     const users = await this.userModel
       .find({ customerKey: { $exists: true } })
@@ -140,7 +135,9 @@ export class UserRepository implements UserRepositoryInterface {
 
     // Iterar sobre los usuarios y desencriptar cada customerKey para comparar
     for (const user of users) {
-      const decryptedCustomerKey = encryptionService.decrypt(user.customerKey);
+      const decryptedCustomerKey = await this.encryptionService.decrypt(
+        user.customerKey,
+      );
 
       if (decryptedCustomerKey === customerKey) {
         const result = await this.userModel
