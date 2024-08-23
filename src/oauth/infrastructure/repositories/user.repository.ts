@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { UserRepositoryInterface } from '../../domain/interface/user.interface';
 import { User } from 'src/oauth/domain/entities/user.entity';
 import { UserDocument } from '../schemas/user.schema';
+import { EncryptionService } from '../../domain/service/crypto/encryption.service';
 
 @Injectable()
 export class UserRepository implements UserRepositoryInterface {
@@ -11,6 +12,7 @@ export class UserRepository implements UserRepositoryInterface {
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly encryptionService: EncryptionService,
   ) {}
 
   async save(user: User): Promise<void> {
@@ -31,6 +33,27 @@ export class UserRepository implements UserRepositoryInterface {
   }
 
   async findBy(query: Partial<User>): Promise<User | null> {
+    if (query.customerKey) {
+      // Crear instancia del servicio de encriptación
+      const encryptionService = new EncryptionService();
+
+      // Obtener todos los usuarios que tienen un customerKey
+      const users = await this.userModel
+        .find({ customerKey: { $exists: true } })
+        .exec();
+
+      // Iterar sobre los usuarios y desencriptar cada customerKey para comparar
+      for (const user of users) {
+        const decryptedCustomerKey = encryptionService.decrypt(
+          user.customerKey,
+        );
+
+        if (decryptedCustomerKey === query.customerKey) {
+          this.logger.log(`(FIND) User found: ${JSON.stringify(user)}`);
+          return user;
+        }
+      }
+    }
     return this.userModel
       .findOne(query)
       .exec()
@@ -74,10 +97,22 @@ export class UserRepository implements UserRepositoryInterface {
     customerKey: string,
     updateData: Partial<User>,
   ): Promise<User | null> {
-    return this.userModel
-      .findOneAndUpdate({ customerKey }, updateData, { new: true })
-      .exec()
-      .then((updatedUser) => {
+    const encryptionService = new EncryptionService();
+
+    // Obtener todos los usuarios que tienen un customerKey
+    const users = await this.userModel
+      .find({ customerKey: { $exists: true } })
+      .exec();
+
+    // Iterar sobre los usuarios y desencriptar cada customerKey para comparar
+    for (const user of users) {
+      const decryptedCustomerKey = encryptionService.decrypt(user.customerKey);
+
+      if (decryptedCustomerKey === customerKey) {
+        const updatedUser = await this.userModel
+          .findOneAndUpdate({ _id: user._id }, updateData, { new: true })
+          .exec();
+
         if (updatedUser) {
           this.logger.log(
             `(UPDATE) User updated successfully: ${JSON.stringify(updatedUser)}`,
@@ -89,21 +124,29 @@ export class UserRepository implements UserRepositoryInterface {
           );
           return null;
         }
-      })
-      .catch((error) => {
-        this.logger.error(
-          `(UPDATE) Failed to update user with customerKey: ${customerKey}`,
-          error.stack,
-        );
-        throw error;
-      });
+      }
+    }
+    this.logger.warn(`(UPDATE) No user found with customerKey: ${customerKey}`);
+    return null;
   }
 
   async delete(customerKey: string): Promise<boolean> {
-    return this.userModel
-      .findOneAndDelete({ customerKey })
-      .exec()
-      .then((result) => {
+    const encryptionService = new EncryptionService();
+
+    // Obtener todos los usuarios que tienen un customerKey
+    const users = await this.userModel
+      .find({ customerKey: { $exists: true } })
+      .exec();
+
+    // Iterar sobre los usuarios y desencriptar cada customerKey para comparar
+    for (const user of users) {
+      const decryptedCustomerKey = encryptionService.decrypt(user.customerKey);
+
+      if (decryptedCustomerKey === customerKey) {
+        const result = await this.userModel
+          .findOneAndDelete({ _id: user._id })
+          .exec();
+
         if (result) {
           this.logger.log(
             `(DELETE) User deleted with customerKey: ${customerKey}`,
@@ -115,13 +158,8 @@ export class UserRepository implements UserRepositoryInterface {
           );
           return false;
         }
-      })
-      .catch((error) => {
-        this.logger.error(
-          `(DELETE) Failed to delete user with customerKey: ${customerKey}`,
-          error.stack,
-        );
-        throw error;
-      });
+      }
+    }
+    this.logger.warn(`(DELETE) No user found with customerKey: ${customerKey}`);
   }
 }
