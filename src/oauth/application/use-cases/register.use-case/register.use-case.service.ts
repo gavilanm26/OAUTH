@@ -27,7 +27,9 @@ export class RegisterUseCase {
         'User with the same type and document number already exists',
       );
     }
-    const customerKey = `${registerDto.type}${registerDto.documentNumber}`;
+    const customerKey = this.encryptionService.encrypt(
+      `${registerDto.type}${registerDto.documentNumber}`,
+    );
     const encryptedPassword = this.encryptionService.encrypt(
       registerDto.password,
     );
