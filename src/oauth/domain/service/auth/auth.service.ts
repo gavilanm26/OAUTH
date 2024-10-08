@@ -91,7 +91,6 @@ export class AuthService {
   }
 
   generateToken(payload: any): string {
-    // Generar el token JWT con el payload proporcionado
     return this.jwtService.sign(payload);
   }
 }

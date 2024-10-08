@@ -12,13 +12,18 @@ import { LoginUseCase } from './application/use-cases/login.use-case/login.use-c
 import { FindAllUsersUseCase } from './application/use-cases/find-all-users.use-case/find-all-users.use-case.service';
 import { UpdateUserUseCase } from './application/use-cases/update-user.use-case/update-user.use-case.service';
 import { DeleteUserUseCase } from './application/use-cases/delete-user.use-case/delete-user.use-case.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    JwtModule.register({
-      secret: process.env.JWTSECRET,
-      signOptions: { expiresIn: '4m' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWTSECRET'),
+        signOptions: { expiresIn: '4m' },
+      }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
